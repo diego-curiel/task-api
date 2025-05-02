@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
 
-def datetime_now()-> datetime:
+def datetime_now() -> datetime:
     """
     Returns the actual date and time in UTC
     """

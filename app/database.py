@@ -1,3 +1,3 @@
-from sqlmodel import create_engine
+from sqlmodel import SQLModel, create_engine
 
 engine = create_engine("sqlite:///../database.db")

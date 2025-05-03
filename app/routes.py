@@ -1,21 +1,21 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Body, HTTPException, Query, status
 from sqlmodel import col, select
 
-from models import Task
+from models import Task, TaskCreate, TaskPatch, TaskPublic
 from dependencies import DatabaseDep
 
 
 task_router = APIRouter(prefix="/task", tags=["tasks"])
 
-@task_router.get("/")
+@task_router.get("/", response_model=list[TaskPublic])
 def list_tasks(
     db_session: DatabaseDep,
     offset: Annotated[int, Query(ge=0)]=0,
     limit: Annotated[int, Query(ge=0)]=20,
     title: Annotated[str, Query(max_length=120)] = "",
-)-> list[Task]:
+):
     """
     Retrieve a list of tasks from the database with optional filtering and pagination.
 
@@ -39,13 +39,39 @@ def list_tasks(
         statement = statement.where(col(Task.title).ilike(f"%{title}%"))
 
     # Get all the tasks 
-    tasks = db_session.exec(statement).all()
+    task_list = db_session.exec(statement).all()
 
     # Raise an HTTP status 404 NOT FOUND if the list is empty
-    if not tasks:
+    if not task_list:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="The tasks list is empty.") 
+    
 
-    return list(tasks)
+    return list(task_list)
 
+
+@task_router.post("/", response_model=TaskPublic, status_code=201)
+def create_task(
+    db_session: DatabaseDep,
+    task: Annotated[TaskCreate, Body()],
+):
+    """
+    Create a new task in the database.
+
+    Parameters:
+        db_session (DatabaseDep): Dependency-injected database session.
+        task (TaskCreate): Task body object of the HTTP request.
+
+    Returns:
+        TaskPublic: The Task object created.
+    """
+    # Validate the input data with the database model
+    db_task = Task.model_validate(task)
+    # Add the object to the database
+    db_session.add(db_task)
+    db_session.commit()
+    # Refresh the object by retrieving data from the database
+    db_session.refresh(db_task)
+
+    return db_task
 

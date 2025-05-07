@@ -1,6 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, HTTPException, Query, status
+from fastapi import (
+    APIRouter, 
+    Body, 
+    HTTPException, 
+    Path, 
+    Query, 
+    status
+)
 from sqlmodel import col, select
 
 from models import Task, TaskCreate, TaskPatch, TaskPublic
@@ -33,7 +40,7 @@ def list_tasks(
     """
     # Select statement
     statement = select(Task).offset(offset).limit(limit)
-    
+
     # Filter the tasks by title
     if title:
         statement = statement.where(col(Task.title).ilike(f"%{title}%"))
@@ -53,20 +60,20 @@ def list_tasks(
 @task_router.post("/", response_model=TaskPublic, status_code=201)
 def create_task(
     db_session: DatabaseDep,
-    task: Annotated[TaskCreate, Body()],
+    task_body: Annotated[TaskCreate, Body()],
 ):
     """
     Create a new task in the database.
 
     Parameters:
         db_session (DatabaseDep): Dependency-injected database session.
-        task (TaskCreate): Task body object of the HTTP request.
+        task_body (TaskCreate): Task body object of the HTTP request.
 
     Returns:
         TaskPublic: The Task object created.
     """
     # Validate the input data with the database model
-    db_task = Task.model_validate(task)
+    db_task = Task.model_validate(task_body)
     # Add the object to the database
     db_session.add(db_task)
     db_session.commit()
@@ -75,3 +82,42 @@ def create_task(
 
     return db_task
 
+
+@task_router.put("/{task_id}", response_model=TaskPublic)
+def update_task(
+    db_session: DatabaseDep,
+    task_id: Annotated[int, Path(ge=1)],
+    task_body: Annotated[TaskCreate, Body()],
+) -> Task:
+    """
+    Update an existing task by ID with new data.
+
+    This endpoint retrieves a task by its ID from the database, updates its fields
+    with the values provided in the request body, and commits the changes.
+
+    Parameters:
+        db_session (DatabaseDep): Dependency-injected database session.
+        task_id (int): ID of the task to retrieve from the database.
+        task_body (TaskCreate): The new task data. Fields not included will be left unchanged.
+
+    Returns:
+        Task: The updated task object.
+
+    Raises:
+        HTTPException: If the task with the given ID does not exist, raises a 404 NOT FOUND.
+    """
+    # Look for the task to update in the database
+    task_db = db_session.get(Task, task_id)
+    if not task_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Task not found")
+    # The TaskCreate model also works for PUT methods
+    task_data = task_body.model_dump(exclude_unset=True)
+    # Add the new data to the database model
+    task_db.sqlmodel_update(task_data)
+    db_session.add(task_db)
+    # Save changes and return the object to the client
+    db_session.commit()
+    db_session.refresh(task_db)
+
+    return task_db

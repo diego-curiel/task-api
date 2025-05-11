@@ -57,6 +57,33 @@ def list_tasks(
     return list(task_list)
 
 
+@task_router.get("/{task_id}", response_model=TaskPublic)
+def task_details(
+    db_session: DatabaseDep,
+    task_id: Annotated[int, Path(ge=0)],
+) -> Task:
+    """
+    Retrieve a task from the database and return its details.
+
+    Parameters:
+        db_session (DatabaseDep): Dependency-injected database session.
+        task_id: ID of the task to be detailed.
+
+    Returns:
+        Task: Details of the Task object retrieved by its ID.
+
+    Raises:
+        HTTPException: If the task with the given ID does not exist, raises a 404 NOT FOUND.
+    """
+    # Retrieve the task from the database
+    task_db = db_session.get(Task, task_id)
+    # Raise an HTTPException if the task with the given ID does not exist
+    if not task_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Task not found")
+    return task_db
+
+
 @task_router.post("/", response_model=TaskPublic, status_code=201)
 def create_task(
     db_session: DatabaseDep,

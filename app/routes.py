@@ -148,3 +148,38 @@ def update_task(
     db_session.refresh(task_db)
 
     return task_db
+
+@task_router.patch("/{task_id}", response_model=TaskPublic)
+def patch_task(
+    db_session: DatabaseDep,
+    task_id: Annotated[int, Path(ge=0)],
+    task_body: Annotated[TaskPatch, Body()],
+):
+    """
+    Retrieve a task from the database, then update some fields with new data.
+    
+    This endpoint retrieves a task from the database by its ID, updates some 
+    fields with the data provided in the request body and commits the changes.
+
+    Parameters:
+        db_session (DatabaseDep): Dependency-injected database session.
+        task_id int: ID of the task to retrieve from the database.
+        task_body TaskPatch: New data used to update the task model.
+
+    Returns:
+        Task: The updated task model.
+
+    Raises:
+        HTTPException: If the task with the given ID was not found, raises a 404 NOT FOUND
+    """
+    task_db = db_session.get(Task, task_id)
+    if not task_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Task not found")
+    task_data = task_body.model_dump(exclude_unset=True)
+    task_db.sqlmodel_update(task_data)
+    db_session.add(task_db)
+    db_session.commit()
+    db_session.refresh(task_db)
+
+    return task_db

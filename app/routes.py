@@ -149,6 +149,7 @@ def update_task(
 
     return task_db
 
+
 @task_router.patch("/{task_id}", response_model=TaskPublic)
 def patch_task(
     db_session: DatabaseDep,
@@ -183,3 +184,30 @@ def patch_task(
     db_session.refresh(task_db)
 
     return task_db
+
+
+@task_router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(
+    db_session: DatabaseDep,
+    task_id: Annotated[int, Path()],
+):
+    """
+    Delete a task from the database.
+
+    This endpoint deletes a task with the given ID from the database.
+
+    Parameters:
+        db_session (DatabaseDep): Dependency-injected database session.
+        task_id (int): ID of the task to be deleted:
+
+    returns:
+        dict: A confirmation message with {"ok": True} upon successful deletion.
+    """
+    task_db = db_session.get(Task, task_id)
+    if not task_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Task not found")
+    db_session.delete(task_db)
+    db_session.commit()
+
+    return {"ok": True}
